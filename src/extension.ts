@@ -1,26 +1,57 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import { getActivePorts, killProcess } from './portDetector'; 
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+  console.log('Port Watcher activated');
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "port-watcher" is now active!');
+  const disposable = vscode.commands.registerCommand(
+    'port-watcher.showPorts', 
+    async () => {
+      try {
+        const ports = await getActivePorts();
+        if (!ports || ports.length === 0) {
+          vscode.window.showInformationMessage('No active ports found.');
+          return;
+        }
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('port-watcher.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from port-watcher!');
-	});
+        const items = ports.map(p => ({
+          label: `Port ${p.port}`,
+          description: `${p.process} (PID: ${p.pid})`,
+          portInfo: p
+        }));
 
-	context.subscriptions.push(disposable);
+        const selected = await vscode.window.showQuickPick(items, {
+          placeHolder: 'Select a port to kill its process'
+        });
+
+        if (!selected) {
+          return;
+        }
+
+        const confirm = await vscode.window.showWarningMessage(
+          `Kill process ${selected.portInfo.process} (PID: ${selected.portInfo.pid}) on port ${selected.portInfo.port}?`,
+          { modal: true },
+          'Yes'
+        );
+
+        if (confirm === 'Yes') {
+          const ok = await killProcess(selected.portInfo.pid);
+          if (ok) {
+            vscode.window.showInformationMessage(`Killed process on port ${selected.portInfo.port}`);
+          } else {
+            vscode.window.showErrorMessage(`Failed to kill process ${selected.portInfo.pid}`);
+          }
+        }
+      } catch (err) {
+        console.error('Error in port-watcher.showPorts:', err);
+        vscode.window.showErrorMessage('Failed to list/kill ports. See Extension Host log for details.');
+      }
+    }
+  );
+
+  context.subscriptions.push(disposable);
 }
 
-// This method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() {
+  console.log('Port Watcher deactivated');
+}
