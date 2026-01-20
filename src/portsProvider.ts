@@ -42,6 +42,15 @@ export class PortsProvider implements vscode.TreeDataProvider<PortItem> {
   }
 
   getTreeItem(element: PortItem): vscode.TreeItem {
+    element.iconPath = new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('charts.green'));
+    element.description = `${element.portInfo.process} (PID: ${element.portInfo.pid})`;
+    element.tooltip = `Port: ${element.portInfo.port}\nProcess: ${element.portInfo.process}\nPID: ${element.portInfo.pid}\nClick to kill`;
+    element.command = {
+      command: 'port-watcher.killPort',
+      title: 'Kill Process',
+      arguments: [element.portInfo]
+    };
+
     return element;
   }
 
@@ -50,7 +59,6 @@ export class PortsProvider implements vscode.TreeDataProvider<PortItem> {
     if (!this.ports || this.ports.length === 0) {
       await this.load();
     }
-    // Map to TreeItems
     return this.ports.map(p => new PortItem(p));
   }
 
