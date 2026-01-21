@@ -10,6 +10,8 @@ export interface PortInfo {
   protocol: string;
 }
 
+type KillMode = 'graceful' | 'force';
+
 export async function getActivePorts(): Promise<PortInfo[]> {
   try {
     const platform = process.platform;
@@ -96,13 +98,17 @@ function parseWindowsOutput(output: string): PortInfo[] {
   return ports;
 }
 
-export async function killProcess(pid: number): Promise<boolean> {
+export async function killProcess(pid: number, mode: KillMode = 'force'): Promise<boolean> {
   try {
     const platform = process.platform;
-    const command = platform === 'win32' 
-      ? `taskkill /F /PID ${pid}` 
-      : `kill -9 ${pid}`;
-    
+    const command = platform === 'win32'
+      ? mode === 'force'
+        ? `taskkill /F /PID ${pid}`
+        : `taskkill /PID ${pid}`
+      : mode === 'force'
+        ? `kill -9 ${pid}`
+        : `kill -15 ${pid}`;
+
     await exec(command);
     return true;
   } catch (error) {

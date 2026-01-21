@@ -25,6 +25,9 @@ export class PortsProvider implements vscode.TreeDataProvider<PortItem> {
     this._onDidChangeTreeData.event;
 
   private ports: PortInfo[] = [];
+  private autoRefreshTimer: NodeJS.Timeout | undefined;
+  private autoRefreshMs = 5000;
+  private autoRefreshEnabled = false;
 
   constructor() {}
 
@@ -35,6 +38,18 @@ export class PortsProvider implements vscode.TreeDataProvider<PortItem> {
   async load(): Promise<void> {
     try {
       this.ports = await getActivePorts();
+      if (this.ports.length === 0) {
+        const choice = await vscode.window.showInformationMessage(
+          'No listening ports found. Ensure lsof/netstat are available.',
+          'Refresh',
+          'View lsof help'
+        );
+        if (choice === 'Refresh') {
+          await this.refresh();
+        } else if (choice === 'View lsof help') {
+          vscode.env.openExternal(vscode.Uri.parse('https://man7.org/linux/man-pages/man8/lsof.8.html'));
+        }
+      }
     } catch (err) {
       this.ports = [];
       console.error('Failed to load ports:', err);
@@ -60,6 +75,24 @@ export class PortsProvider implements vscode.TreeDataProvider<PortItem> {
       await this.load();
     }
     return this.ports.map(p => new PortItem(p));
+  }
+
+  toggleAutoRefresh() {
+    if (this.autoRefreshEnabled) {
+      if (this.autoRefreshTimer) {
+        clearInterval(this.autoRefreshTimer);
+        this.autoRefreshTimer = undefined;
+      }
+      this.autoRefreshEnabled = false;
+      vscode.window.showInformationMessage('Auto-refresh stopped');
+      return;
+    }
+
+    this.autoRefreshEnabled = true;
+    this.autoRefreshTimer = setInterval(() => {
+      this.refresh();
+    }, this.autoRefreshMs);
+    vscode.window.showInformationMessage(`Auto-refresh started (every ${this.autoRefreshMs / 1000}s)`);
   }
 
   // Utility: remove a port from view after kill (UI update)

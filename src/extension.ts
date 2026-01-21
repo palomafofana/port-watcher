@@ -23,19 +23,26 @@ export function activate(context: vscode.ExtensionContext) {
     if (!portInfo) {
       return;
     }
+    const isWindows = process.platform === 'win32';
+    const buttons = isWindows ? ['Terminate', 'Terminate /F'] : ['Kill gracefully', 'Force kill'];
+
     const confirm = await vscode.window.showWarningMessage(
-      `Kill process ${portInfo.process} (PID: ${portInfo.pid}) on port ${portInfo.port}?`,
+      `${isWindows ? 'Terminate' : 'Kill'} process ${portInfo.process} (PID: ${portInfo.pid}) on port ${portInfo.port}?`,
       { modal: true },
-      'Kill'
+      ...buttons
     );
-    if (confirm === 'Kill') {
-      const ok = await killProcess(portInfo.pid);
-      if (ok) {
-        vscode.window.showInformationMessage(`Killed process on port ${portInfo.port}`);
-        provider.removePort(portInfo.pid);
-      } else {
-        vscode.window.showErrorMessage(`Failed to kill process ${portInfo.pid}`);
-      }
+
+    if (!confirm) {
+      return;
+    }
+
+    const force = isWindows ? confirm === 'Terminate /F' : confirm === 'Force kill';
+    const ok = await killProcess(portInfo.pid, force ? 'force' : 'graceful');
+    if (ok) {
+      vscode.window.showInformationMessage(`${force ? 'Force' : 'Graceful'} kill sent for port ${portInfo.port}`);
+      provider.removePort(portInfo.pid);
+    } else {
+      vscode.window.showErrorMessage(`Failed to ${force ? 'force-kill' : 'terminate'} process ${portInfo.pid}`);
     }
   });
 
@@ -58,8 +65,12 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
+  const toggleAutoRefreshCmd = vscode.commands.registerCommand('port-watcher.toggleAutoRefresh', () => {
+    provider.toggleAutoRefresh();
+  });
+
   // Clean up disposables when the extension is deactivated
-  context.subscriptions.push(refreshCmd, killCmd, quickPickCmd, treeView);
+  context.subscriptions.push(refreshCmd, killCmd, quickPickCmd, toggleAutoRefreshCmd, treeView);
 }
 
 export function deactivate() {}
