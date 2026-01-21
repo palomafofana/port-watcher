@@ -44,7 +44,6 @@ function parseUnixOutput(output: string): PortInfo[] {
   const ports: PortInfo[] = [];
   
   for (const line of lines) {
-    // Example line: node    12345 user   23u  IPv4 0x1234      0t0  TCP *:3000 (LISTEN)
     const parts = line.split(/\s+/);
     
     if (parts.length >= 9) {
@@ -52,7 +51,7 @@ function parseUnixOutput(output: string): PortInfo[] {
       const pid = parseInt(parts[1], 10);
       const addressPort = parts[8];
       
-      // Extract port from address: port format (e.g., *:3000 or 127.0.0.1:8080)
+      // Extract port from address
       const portMatch = addressPort.match(/:(\d+)$/);
       
       if (portMatch) {
@@ -72,7 +71,6 @@ function parseWindowsOutput(output: string): PortInfo[] {
   const ports: PortInfo[] = [];
   
   for (const line of lines) {
-    // Example:  TCP    0.0.0.0:3000    0.0.0.0:0    LISTENING    12345
     const parts = line.trim().split(/\s+/);
     
     if (parts.length >= 5) {
